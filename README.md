@@ -144,16 +144,24 @@ O desenvolvimento deverá considerar, conforme a aplicabilidade ao demonstrativo
 
 ## 11. Execução do projeto
 
-Após a criação do repositório e a configuração do ambiente, os comandos previstos para execução local são:
+Na raiz do repositório, clone e execute a aplicação:
 
 ```bash
-git clone URL_DO_REPOSITORIO
-cd municipio-inteligente
+git clone https://github.com/Patrik9207/MUNIC-PIO-INTELIGENTE.git
+cd MUNIC-PIO-INTELIGENTE/municipio-inteligente
 npm install
 npm run dev
 ```
 
-**Observação:** substitua `URL_DO_REPOSITORIO` pelo endereço real do repositório. Os comandos e as dependências deverão ser ajustados à estrutura efetivamente criada no projeto.
+Para verificar testes, lint e build de produção:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+A aplicação está na pasta [municipio-inteligente/](./municipio-inteligente/). A documentação detalhada de instalação e publicação está em [municipio-inteligente/README.md](./municipio-inteligente/README.md).
 
 ## 12. Público-alvo
 
@@ -166,9 +174,11 @@ npm run dev
 
 ## 13. Status do projeto
 
-**Em desenvolvimento.**
+**Em desenvolvimento — primeira versão funcional disponível.**
 
-As funcionalidades descritas representam a proposta do projeto. Sua disponibilidade dependerá da implementação, dos testes e da validação dos resultados.
+A aplicação já permite carregar PDFs e extrair texto localmente, revisar manualmente os valores, calcular indicadores, cruzar demonstrativos, gerar um diagnóstico por regras e exportar relatório em PDF. Um conjunto de demonstração para os oito documentos está identificado como fictício.
+
+A integração com IA generativa ainda não está habilitada: os diagnósticos atuais são baseados em regras e são identificados como tais. A extração automática é preliminar, não há OCR e os resultados precisam ser conferidos por um profissional. As funcionalidades e os cálculos seguem sujeitos a testes, validação técnica e atualização das normas aplicáveis.
 
 ## 14. Autor
 
