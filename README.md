@@ -176,7 +176,7 @@ As funcionalidades descritas representam a proposta do projeto. Sua disponibilid
 
 Contador | Perito Contábil Judicial | Analista CNPI
 
-- GitHub: https://github.com/Patrik9207
+- GitHub: [https://github.com/Patrik9207/MUNIC-PIO-INTELIGENTE]
 
 ## 15. Licença
 
