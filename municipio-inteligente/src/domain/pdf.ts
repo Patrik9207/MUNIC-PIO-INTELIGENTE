@@ -1,10 +1,12 @@
 import * as pdfjs from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { METRICS_BY_DOCUMENT } from './catalog'
 import { parseBrazilianNumber } from './numbers'
 import type { DocumentType, MetricKey } from '../types'
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString()
 
 export interface PdfExtraction {
   text: string
