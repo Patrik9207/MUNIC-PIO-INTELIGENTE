@@ -8,7 +8,14 @@ describe('parseBrazilianNumber', () => {
 
   it('parses accounting negatives and plain integers', () => {
     expect(parseBrazilianNumber('(R$ 1.234,56)')).toBe(-1_234.56)
+    expect(parseBrazilianNumber('-1.234,56')).toBe(-1_234.56)
     expect(parseBrazilianNumber('1500')).toBe(1500)
+  })
+
+  it('distinguishes Brazilian and US punctuation when both separators are present', () => {
+    expect(parseBrazilianNumber('1.234,56')).toBe(1_234.56)
+    expect(parseBrazilianNumber('1,234.56')).toBe(1_234.56)
+    expect(parseBrazilianNumber('1,234,567')).toBe(1_234_567)
   })
 
   it('rejects blank and invalid values', () => {

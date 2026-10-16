@@ -60,6 +60,20 @@ export interface MetricDefinition {
 export interface DocumentRecord {
   id: string
   name: string
+  fileSize?: number
+  previewUrl?: string
+  pageReadings?: Array<{
+    pageNumber: number
+    method: 'text' | 'ocr' | 'empty'
+    confidence: number | null
+    rotation: number
+  }>
+  fieldSources?: Partial<Record<MetricKey, {
+    pageNumber: number
+    originalDescription: string
+    originalValue: string
+    confidence: number | null
+  }>>
   type: DocumentType | null
   status: 'processing' | 'review' | 'no-text' | 'error' | 'demo'
   fields: Partial<Record<MetricKey, number>>

@@ -29,8 +29,10 @@ Os testes automatizados cobrem interpretação de números brasileiros, divisõe
 
 ## Funcionalidades
 
-- Carregamento de múltiplos PDFs e categorização manual ou automática.
-- Extração local de texto, com edição manual dos campos reconhecidos.
+- Campo de upload independente para cada um dos oito demonstrativos, com seleção, arrastar e soltar, substituição, remoção e prévia do PDF.
+- Importação em lote de PDFs complementares e categorização manual ou automática conservadora.
+- Extração local de texto selecionável com PDF.js e OCR em português por página com Tesseract.js para PDFs digitalizados ou mistos.
+- Revisão manual dos valores com indicação do documento, página, descrição original e confiança do OCR, quando disponível.
 - Indicadores patrimoniais, orçamentários, fiscais e de restos a pagar.
 - Gráficos simples, verificações entre demonstrativos e diagnóstico por regras.
 - Relatório PDF com dados, fórmulas, limitações e orientações.
@@ -38,7 +40,7 @@ Os testes automatizados cobrem interpretação de números brasileiros, divisõe
 
 ## Limitações e segurança
 
-O diagnóstico atual usa regras determinísticas. Não há integração com IA generativa, autenticação, serviço externo, banco de dados ou OCR. PDFs digitalizados exigem entrada manual. A extração automática é heurística e precisa ser conferida com os documentos originais; campos ausentes não são estimados. Não se declara conformidade legal sem contexto suficiente.
+O diagnóstico atual usa regras determinísticas. Não há integração com IA generativa, autenticação ou banco de dados. Os PDFs são lidos no navegador e não são enviados a um serviço externo. Para OCR, o navegador baixa o worker e o modelo de idioma português do Tesseract na primeira utilização; o conteúdo do documento permanece local. OCR pode demorar, falhar ou reconhecer valores incorretamente, especialmente em páginas rotacionadas ou de baixa qualidade. A extração automática é heurística e deve ser conferida com os documentos originais; campos ausentes não são estimados. Não se declara conformidade legal sem contexto suficiente.
 
 Os arquivos são processados no navegador e não são enviados a um servidor. O relatório é uma ferramenta de apoio gerencial e não substitui a análise do profissional responsável nem procedimentos formais de controle.
 

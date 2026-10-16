@@ -1,17 +1,26 @@
 export function parseBrazilianNumber(value: string): number | undefined {
-  let normalized = value
-    .replace(/R\$\s?/gi, '')
-    .replace(/\s/g, '')
-    .replace(/[^\d,().+-]/g, '')
+  let normalized = value.replace(/R\$\s?/gi, '').replace(/\s/g, '').replace(/[^\d,().+-]/g, '')
 
   if (!normalized) return undefined
 
-  const isNegative = normalized.startsWith('(') && normalized.endsWith(')')
+  const isNegative = (normalized.startsWith('(') && normalized.endsWith(')')) || normalized.startsWith('-')
   normalized = normalized.replace(/[()]/g, '')
-  const hasComma = normalized.includes(',')
+  const commaIndex = normalized.lastIndexOf(',')
+  const dotIndex = normalized.lastIndexOf('.')
 
-  if (hasComma) {
-    normalized = normalized.replace(/\./g, '').replace(',', '.')
+  if (commaIndex >= 0 && dotIndex >= 0) {
+    if (dotIndex > commaIndex) {
+      normalized = normalized.replace(/,/g, '')
+    } else {
+      normalized = normalized.replace(/\./g, '').replace(',', '.')
+    }
+  } else if (commaIndex >= 0) {
+    const commaCount = (normalized.match(/,/g) ?? []).length
+    if (commaCount > 1 || /,\d{3}$/.test(normalized)) {
+      normalized = normalized.replace(/,/g, '')
+    } else {
+      normalized = normalized.replace(',', '.')
+    }
   } else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(normalized)) {
     normalized = normalized.replace(/\./g, '')
   }

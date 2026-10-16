@@ -8,6 +8,7 @@ export interface ReportDetails {
   municipality: string
   state: string
   exercise: string
+  period: string
   unit: GovernmentUnit
 }
 
@@ -52,7 +53,7 @@ export function exportReportPdf(documents: DocumentRecord[], details: ReportDeta
   pdf.setFontSize(10)
   pdf.text('Análise Contábil e Financeira Municipal', margin, 26)
   y = 47
-  write(`Município: ${details.municipality || 'Não informado'} / ${details.state || 'UF não informada'}    Exercício: ${details.exercise || 'Não informado'}`)
+  write(`Município: ${details.municipality || 'Não informado'} / ${details.state || 'UF não informada'}    Exercício: ${details.exercise || 'Não informado'}    Período: ${details.period || 'Não informado'}`)
 
   heading('1. Documentos analisados')
   if (documents.length === 0) write('Nenhum demonstrativo foi carregado.')
@@ -62,7 +63,13 @@ export function exportReportPdf(documents: DocumentRecord[], details: ReportDeta
     if (document.type) {
       for (const field of METRICS_BY_DOCUMENT[document.type]) {
         const value = document.fields[field.key]
-        if (value !== undefined) write(`  ${field.label}: ${formatNumber(value)}.`)
+        const source = document.fieldSources?.[field.key]
+        if (value !== undefined) {
+          const trace = source
+            ? ` (página ${source.pageNumber}; texto original: “${source.originalDescription}”; valor lido: ${source.originalValue}${source.confidence === null ? '' : `; confiança OCR ${Math.round(source.confidence * 100)}%`})`
+            : ''
+          write(`  ${field.label}: ${formatNumber(value)}${trace}.`)
+        }
       }
     }
   }
