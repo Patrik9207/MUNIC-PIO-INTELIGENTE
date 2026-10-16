@@ -393,19 +393,26 @@ function Overview({
     return (
       <section className="welcome-panel">
         <div className="welcome-icon"><Building2 size={24} aria-hidden="true" /></div>
-        <p className="eyebrow">BEM-VINDO AO MUNICÍPIO INTELIGENTE</p>
-        <h2>Comece uma nova análise fiscal</h2>
-        <p className="welcome-copy">Carregue demonstrativos municipais em PDF para extrair dados, calcular indicadores e conferir saldos. Os arquivos são processados no próprio navegador.</p>
+        <p className="eyebrow">ANÁLISE CONTÁBIL E FINANCEIRA MUNICIPAL</p>
+        <h2>Município Inteligente</h2>
+        <p className="welcome-subtitle">Informação clara para apoiar a gestão pública municipal.</p>
+        <p className="welcome-copy">Transforme demonstrativos contábeis e fiscais em informações claras para apoiar a análise das contas públicas e a tomada de decisões. Envie seus arquivos PDF, confira os dados extraídos, analise indicadores e identifique possíveis inconsistências em um único ambiente.</p>
+        <div className="welcome-features">
+          <h3>O que você pode fazer?</h3>
+          <ul>
+            <li>Analisar demonstrativos contábeis, orçamentários, financeiros e fiscais.</li>
+            <li>Calcular indicadores e comparar informações.</li>
+            <li>Identificar divergências que merecem atenção.</li>
+            <li>Gerar diagnósticos e relatórios com base nos dados conferidos.</li>
+          </ul>
+        </div>
+        <p className="welcome-start">Comece agora: importe os demonstrativos do município e inicie sua análise.</p>
         <div className="welcome-actions">
-          <button className="button button-primary" onClick={upload}><Upload size={17} aria-hidden="true" /> Adicionar demonstrativos</button>
+          <button className="button button-primary" onClick={upload}><Upload size={17} aria-hidden="true" /> Importar demonstrativos</button>
           <button className="button button-secondary" onClick={loadDemo}>Testar com dados fictícios</button>
         </div>
-        <div className="welcome-tip"><CircleHelp size={16} aria-hidden="true" /><span>Comece pelo demonstrativo da Receita Corrente Líquida e pelo de Despesa com Pessoal.</span></div>
-        <div className="empty-metrics">
-          <div><strong>01</strong><span>Carregue PDFs</span></div><ChevronRight size={16} aria-hidden="true" />
-          <div><strong>02</strong><span>Revise os valores</span></div><ChevronRight size={16} aria-hidden="true" />
-          <div><strong>03</strong><span>Gere o diagnóstico</span></div>
-        </div>
+        <p className="welcome-tagline">Município Inteligente — mais clareza, controle e eficiência na análise das contas públicas.</p>
+        <div className="welcome-tip"><CircleHelp size={16} aria-hidden="true" /><span>Os documentos são processados no navegador; confira os dados extraídos antes de gerar o diagnóstico.</span></div>
       </section>
     )
   }
