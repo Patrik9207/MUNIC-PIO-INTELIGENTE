@@ -26,6 +26,10 @@ export interface PdfExtraction {
   warnings: string[]
 }
 
+export function hasUsefulExtraction(extraction: Pick<PdfExtraction, 'text' | 'type' | 'fields'>): boolean {
+  return extraction.text.trim().length > 0
+}
+
 function normalize(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }

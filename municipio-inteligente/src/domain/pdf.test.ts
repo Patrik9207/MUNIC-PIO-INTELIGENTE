@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import * as pdfjs from 'pdfjs-dist'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { extractPdf } from './pdf'
+import { extractPdf, hasUsefulExtraction } from './pdf'
 
 vi.mock('pdfjs-dist', async () => import('pdfjs-dist/legacy/build/pdf.mjs'))
 
@@ -41,5 +41,11 @@ describe('extractPdf', () => {
     const file = new File(['not a PDF'], 'corrompido.pdf', { type: 'application/pdf' })
 
     await expect(extractPdf(file)).rejects.toThrow()
+  })
+
+  it('treats empty content as not useful and requires manual review', () => {
+    expect(hasUsefulExtraction({ text: '', type: null, fields: {} })).toBe(false)
+    expect(hasUsefulExtraction({ text: 'Receita', type: null, fields: {} })).toBe(true)
+    expect(hasUsefulExtraction({ text: 'Texto sem campos', type: 'bo', fields: {} })).toBe(true)
   })
 })

@@ -21,6 +21,7 @@ import { buildDiagnosis, calculateIndicators, runCrossChecks } from './domain/an
 import { METRICS_BY_DOCUMENT } from './domain/catalog'
 import { DEMO_DOCUMENTS } from './domain/demo'
 import { parseBrazilianNumber } from './domain/numbers'
+import { hasUsefulExtraction } from './domain/pdf'
 import { formatCurrency, formatPercent } from './utils/format'
 import { DOCUMENT_TYPES } from './types'
 import type { DocumentRecord, DocumentType, GovernmentUnit, MetricKey } from './types'
@@ -91,7 +92,8 @@ function App() {
           const extracted = await extractPdf(file, (page, progress) => {
             setOcrProgress({ fileName: file.name, page, progress })
           })
-          const noText = extracted.text.trim().length === 0
+          const usefulExtraction = hasUsefulExtraction(extracted)
+          const noText = !usefulExtraction
           results.push({
             id: crypto.randomUUID(),
             name: file.name,
@@ -104,7 +106,7 @@ function App() {
             pageReadings: extracted.pages.map(({ pageNumber, method, confidence, rotation }) => ({ pageNumber, method, confidence, rotation })),
             fieldSources: extracted.fieldSources,
             error: [
-              noText ? 'Não foi possível reconhecer texto no documento.' : '',
+              noText ? 'Não foi possível extrair dados úteis do documento. Abra o arquivo na conferência e confirme se ele é legível ou se há necessidade de OCR adicional.' : '',
               ...extracted.warnings,
             ].filter(Boolean).join(' ') || undefined,
           })
@@ -135,7 +137,7 @@ function App() {
         return [...retained, ...results]
       })
       if (results.some((document) => document.status === 'error' || document.status === 'no-text')) {
-        setMessage('Um ou mais arquivos precisam de conferência. Se a leitura ou o OCR não recuperar os dados, preencha os campos manualmente.')
+        setMessage('A leitura não conseguiu extrair dados úteis de um ou mais arquivos. Revise a conferência e preencha manualmente os campos necessários.')
       } else if (rejected === 0) {
         setMessage('Leitura concluída. Revise os valores extraídos antes de gerar o diagnóstico.')
       }
@@ -645,6 +647,54 @@ function DiagnosisPage({ diagnosis, checks, indicators, hasDocuments, onAddDocum
         {indicators.fiscalLimits.maximum === undefined
           ? <p>Selecione Executivo ou Legislativo e confirme o órgão e o período no demonstrativo. Sem essa informação, não há comparação legal automática.</p>
           : <p>Máximo: <strong>{formatPercent(indicators.fiscalLimits.maximum)}</strong> · Prudencial: <strong>{formatPercent(indicators.fiscalLimits.prudential)}</strong> · Alerta: <strong>{formatPercent(indicators.fiscalLimits.alert)}</strong>. A comparação é indicativa e não declara conformidade legal.</p>}
+      </section>
+      <section className="panel fiscal-summary">
+        <div className="panel-heading"><div><h3>Relatório de gestão</h3><p>Indicadores calculados com base nas regras contábeis e na Lei de Responsabilidade Fiscal</p></div><FileText size={18} /></div>
+        <div className="check-table-wrap">
+          <table className="check-table">
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th>Fórmula / regra aplicada</th>
+                <th>Resultado</th>
+                <th>Base normativa</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Resultado orçamentário</td>
+                <td>Receita realizada − despesa empenhada</td>
+                <td>{formatCurrency(indicators.budgetResult)}</td>
+                <td>Lei nº 4.320/1964 e LRF</td>
+              </tr>
+              <tr>
+                <td>Liquidez corrente</td>
+                <td>Ativo circulante ÷ passivo circulante</td>
+                <td>{indicators.currentRatio !== undefined ? indicators.currentRatio.toFixed(2) : 'Dados insuficientes'}</td>
+                <td>Normas contábeis e esteira fiscal</td>
+              </tr>
+              <tr>
+                <td>Endividamento</td>
+                <td>(Passivo circulante + passivo não circulante) ÷ ativo total × 100</td>
+                <td>{formatPercent(indicators.debtToAssets)}</td>
+                <td>Estrutura contábil e análise de risco</td>
+              </tr>
+              <tr>
+                <td>Despesa com pessoal sobre a RCL</td>
+                <td>(Despesa total com pessoal ÷ RCL ajustada) × 100</td>
+                <td>{formatPercent(indicators.personnelRatio)}</td>
+                <td>Lei Complementar nº 101/2000 (LRF)</td>
+              </tr>
+              <tr>
+                <td>Resultado patrimonial</td>
+                <td>VPA − VPD</td>
+                <td>{formatCurrency(indicators.dvpResult)}</td>
+                <td>Demonstração das Variações Patrimoniais</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="field-help">Este bloco funciona como resumo executivo para a aba Diagnóstico, com indicadores calculados, fórmulas e referência técnica. A análise não substitui a revisão profissional e a comparação com os demonstrativos originais.</p>
       </section>
     </div>
   )
