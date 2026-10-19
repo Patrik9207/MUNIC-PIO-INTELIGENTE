@@ -27,7 +27,13 @@ export interface PdfExtraction {
 }
 
 export function hasUsefulExtraction(extraction: Pick<PdfExtraction, 'text' | 'type' | 'fields'>): boolean {
-  return extraction.text.trim().length > 0
+  const text = extraction.text.trim()
+  if (!text) return false
+
+  if (Object.keys(extraction.fields ?? {}).length > 0) return true
+  if (extraction.type) return true
+
+  return /receita|despesa|balanco|ativo|passivo|patrimonio|rcl|pessoal|numerario|variacao/i.test(text)
 }
 
 function normalize(value: string): string {
@@ -50,6 +56,27 @@ function inferDocumentType(filename: string, text: string): DocumentType | null 
   return rules.find(([, pattern]) => pattern.test(content))?.[0] ?? null
 }
 
+function chooseBestDocumentType(
+  pages: PdfPageReading[],
+  fallbackType: DocumentType | null,
+): { type: DocumentType | null; fields: Partial<Record<MetricKey, number>>; fieldSources: PdfExtraction['fieldSources'] } {
+  const allTypes = Object.keys(METRICS_BY_DOCUMENT) as DocumentType[]
+  const candidates: DocumentType[] = fallbackType
+    ? [fallbackType, ...allTypes.filter((type) => type !== fallbackType)]
+    : allTypes
+  const results = candidates.map((type) => ({
+    type,
+    ...extractFields(type, pages),
+  })).filter((result) => Object.keys(result.fields).length > 0)
+
+  if (!results.length) {
+    return { type: fallbackType, fields: {}, fieldSources: {} }
+  }
+
+  const ranked = [...results].sort((a, b) => Object.keys(b.fields).length - Object.keys(a.fields).length)
+  return ranked[0]
+}
+
 function textLines(items: Array<{ str: string; transform?: number[] }>): string[] {
   const lines = new Map<number, Array<{ x: number; text: string }>>()
 
@@ -68,6 +95,12 @@ function textLines(items: Array<{ str: string; transform?: number[] }>): string[
     .filter(Boolean)
 }
 
+function extractCandidateValues(text: string): string[] {
+  const currencyMatches = text.match(/R\$\s*\(?-?\d[\d.\s]*(?:,\d{1,2})?\)?/gi)
+  const matches = currencyMatches ?? text.match(/(?<![\w/])\(?-?\d[\d. ]*(?:,\d{1,2})?\)?(?![\w/])/g)
+  return (matches ?? []).map((match) => match.trim()).filter(Boolean)
+}
+
 function extractFields(type: DocumentType | null, pages: PdfPageReading[]) {
   const fields: Partial<Record<MetricKey, number>> = {}
   const fieldSources: PdfExtraction['fieldSources'] = {}
@@ -80,24 +113,49 @@ function extractFields(type: DocumentType | null, pages: PdfPageReading[]) {
 
   for (const metric of METRICS_BY_DOCUMENT[type]) {
     const aliases = metric.aliases.map(normalize).sort((a, b) => b.length - a.length)
-    for (let index = 0; index < lines.length; index += 1) {
-      const normalizedLine = normalize(lines[index].text)
-      if (!aliases.some((alias) => normalizedLine.includes(alias))) continue
+    let match: { index: number; description: string; value: string; pageNumber: number; confidence: number | null } | undefined
 
-      const currencyMatches = lines[index].text.match(/R\$\s*\(?-?\d[\d.\s]*(?:,\d{1,2})?\)?/gi)
-      const matches = currencyMatches ?? lines[index].text.match(/(?<![\w/])\(?-?\d[\d. ]*(?:,\d{1,2})?\)?(?![\w/])/g)
-      const candidates = (matches ?? []).map((match) => match.trim())
-      const value = candidates.length > 0 ? parseBrazilianNumber(candidates[candidates.length - 1]) : undefined
+    for (let index = 0; index < lines.length; index += 1) {
+      const current = lines[index]
+      const currentNormalized = normalize(current.text)
+      const samePageLines = lines.filter((entry) => entry.pageNumber === current.pageNumber)
+      const pageIndex = samePageLines.findIndex((entry) => entry === current)
+      const window = samePageLines.slice(Math.max(0, pageIndex - 4), Math.min(samePageLines.length, pageIndex + 6))
+      const windowText = window.map((entry) => entry.text).join(' ')
+      const normalizedWindowText = normalize(windowText)
+      const hasAlias = aliases.some((alias) => currentNormalized.includes(alias) || normalizedWindowText.includes(alias))
+      if (!hasAlias) continue
+
+      const aliasLineIndex = window.findIndex((entry) => aliases.some((alias) => normalize(entry.text).includes(alias)))
+      const valueWindow = window
+        .slice(Math.max(0, aliasLineIndex), Math.min(window.length, aliasLineIndex + 4))
+        .map((entry) => entry.text)
+        .join(' ')
+      const fallbackWindow = window.map((entry) => entry.text).join(' ')
+      const candidateWindow = valueWindow || fallbackWindow
+      const candidates = extractCandidateValues(candidateWindow)
+      const preferredValue = candidates[0]
+      const value = preferredValue ? parseBrazilianNumber(preferredValue) : undefined
       if (value !== undefined) {
-        fields[metric.key] = value
-        fieldSources[metric.key] = {
-          pageNumber: lines[index].pageNumber,
-          originalDescription: lines[index].text,
-          originalValue: candidates[candidates.length - 1],
-          confidence: lines[index].confidence,
+        match = {
+          index,
+          description: candidateWindow,
+          value: preferredValue,
+          pageNumber: current.pageNumber,
+          confidence: current.confidence,
         }
+        break
       }
-      break
+    }
+
+    if (match) {
+      fields[metric.key] = parseBrazilianNumber(match.value) ?? undefined
+      fieldSources[metric.key] = {
+        pageNumber: match.pageNumber,
+        originalDescription: match.description,
+        originalValue: match.value,
+        confidence: match.confidence,
+      }
     }
   }
 
@@ -189,9 +247,17 @@ export async function extractPdf(
     }
 
     const text = pages.map((page) => page.text).filter(Boolean).join('\n')
-    const type = inferDocumentType(file.name, text)
-    const { fields, fieldSources } = extractFields(type, pages)
-    return { text, pageCount, type, fields, fieldSources, pages, warnings }
+    const detectedType = inferDocumentType(file.name, text)
+    const bestDocument = chooseBestDocumentType(pages, detectedType)
+    return {
+      text,
+      pageCount,
+      type: bestDocument.type,
+      fields: bestDocument.fields,
+      fieldSources: bestDocument.fieldSources,
+      pages,
+      warnings,
+    }
   } catch (error) {
     if (error instanceof Error && error.name === 'PasswordException') {
       throw new Error('A leitura do PDF protegido foi cancelada ou a senha não foi aceita.')
