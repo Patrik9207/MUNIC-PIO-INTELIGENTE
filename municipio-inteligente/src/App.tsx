@@ -632,6 +632,32 @@ function DiagnosisPage({ diagnosis, checks, indicators, hasDocuments, onAddDocum
         <DiagnosisSection title="Análise fiscal" items={diagnosis.fiscal} icon={<Landmark size={18} />} />
         <DiagnosisSection title="Recomendações gerenciais" items={diagnosis.recommendations} icon={<CheckCircle2 size={18} />} />
       </div>
+
+      <section className="panel executive-summary-panel">
+        <div className="panel-heading"><div><h3>Resumo executivo de gestão</h3><p>Indicadores-chave com leitura técnica e comparativa</p></div><FileChartColumnIncreasing size={18} /></div>
+        <div className="executive-summary-grid">
+          <div className="executive-summary-card executive-summary-positive">
+            <span className="executive-summary-label">Resultado orçamentário</span>
+            <strong>{formatCurrency(indicators.budgetResult)}</strong>
+            <small>{(indicators.budgetResult ?? 0) >= 0 ? 'Superávit orçamentário' : 'Déficit orçamentário'}</small>
+          </div>
+          <div className="executive-summary-card executive-summary-neutral">
+            <span className="executive-summary-label">Liquidez corrente</span>
+            <strong>{indicators.currentRatio !== undefined ? indicators.currentRatio.toFixed(2) : '—'}</strong>
+            <small>{indicators.currentRatio !== undefined ? (indicators.currentRatio >= 1 ? 'Sustentação operacional adequada' : 'Atenção à liquidez') : 'Dados insuficientes'}</small>
+          </div>
+          <div className="executive-summary-card executive-summary-warning">
+            <span className="executive-summary-label">Despesa com pessoal / RCL</span>
+            <strong>{formatPercent(indicators.personnelRatio)}</strong>
+            <small>{indicators.fiscalLimits.maximum !== undefined ? (indicators.personnelRatio !== undefined && indicators.personnelRatio <= indicators.fiscalLimits.maximum ? 'Dentro do limite referencial' : 'Acima do limite referencial') : 'Limite fiscal pendente'}</small>
+          </div>
+          <div className="executive-summary-card executive-summary-info">
+            <span className="executive-summary-label">Endividamento</span>
+            <strong>{formatPercent(indicators.debtToAssets)}</strong>
+            <small>{indicators.debtToAssets !== undefined ? (indicators.debtToAssets <= 60 ? 'Nível aceitável de estrutura de capital' : 'Estrutura mais endividada') : 'Dados insuficientes'}</small>
+          </div>
+        </div>
+      </section>
       <section className="panel checks-panel">
         <div className="panel-heading"><div><h3>Conferência cruzada</h3><p>Verificações aritméticas e comparações entre demonstrativos disponíveis.</p></div><span className="check-count">{checks.length} verificações</span></div>
         <div className="check-table-wrap"><table className="check-table"><thead><tr><th>Verificação</th><th>Status</th><th>Valores e orientação</th></tr></thead><tbody>

@@ -1025,6 +1025,68 @@
   gap: 12px;
 }
 
+.executive-summary-panel {
+  padding: 15px;
+}
+
+.executive-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.executive-summary-card {
+  display: grid;
+  gap: 7px;
+  min-height: 120px;
+  padding: 14px 15px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.executive-summary-positive {
+  border-color: #d3ebd9;
+  background: linear-gradient(180deg, #f4fbf5 0%, #edf9f0 100%);
+}
+
+.executive-summary-neutral {
+  border-color: #d7e7f3;
+  background: linear-gradient(180deg, #f2f9ff 0%, #edf5fb 100%);
+}
+
+.executive-summary-warning {
+  border-color: #f1deb1;
+  background: linear-gradient(180deg, #fffaf1 0%, #fff4dc 100%);
+}
+
+.executive-summary-info {
+  border-color: #d7dfe8;
+  background: linear-gradient(180deg, #f7f9fb 0%, #eef4f8 100%);
+}
+
+.executive-summary-label {
+  color: #678097;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+}
+
+.executive-summary-card strong {
+  color: #1a3555;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: -.4px;
+}
+
+.executive-summary-card small {
+  color: #607487;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .diagnosis-card {
   padding: 14px 15px;
 }
