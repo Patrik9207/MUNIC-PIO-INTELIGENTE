@@ -235,7 +235,7 @@ export function buildDiagnosis(documents: DocumentRecord[], unit: GovernmentUnit
   if (indicators.dvpResult !== undefined) {
     summary.push(`Resultado patrimonial calculado em R$ ${indicators.dvpResult.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`)
   }
-  if (summary.length === 0) summary.push('Ainda não há dados suficientes para compor um resumo. Adicione demonstrativos e revise os valores extraídos.')
+  if (summary.length === 0) summary.push('Ainda não há dados suficientes para compor um resumo. Adicione demonstrativos e informe os valores manualmente.')
 
   for (const check of checks.filter((item) => item.status === 'Inconsistência aparente' || item.status === 'Diferença a conferir')) {
     attention.push(`${check.label}: ${check.status.toLowerCase()}. ${check.message}`)
@@ -251,7 +251,7 @@ export function buildDiagnosis(documents: DocumentRecord[], unit: GovernmentUnit
     else if (limit.status === 'prudential' || limit.status === 'alert') fiscal.push('O percentual atingiu a faixa de alerta ou prudencial; recomenda-se acompanhamento e validação dos dados.')
     else fiscal.push('O percentual está abaixo da faixa de alerta indicada, conforme os dados informados; isso não equivale a uma declaração de conformidade legal.')
   }
-  recommendations.push('Revise manualmente todos os valores extraídos do PDF, especialmente os que aparecem em tabelas com colunas próximas.')
+  recommendations.push('Confira manualmente todos os valores informados com os demonstrativos oficiais, observando o período e a abrangência de cada documento.')
   recommendations.push('Confirme que os demonstrativos comparados pertencem ao mesmo município, período e abrangência.')
   if (checks.some((check) => check.status !== 'Compatível')) recommendations.push('Investigue as diferenças sinalizadas e documente as justificativas antes de usar o relatório em decisões formais.')
   recommendations.push('Valide limites fiscais e metodologia com o profissional responsável antes de declarar conformidade legal.')

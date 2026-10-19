@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, ReactNode } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -11,17 +11,14 @@ import {
   FileChartColumnIncreasing,
   FileText,
   Landmark,
-  Plus,
   RotateCcw,
   ShieldCheck,
   Trash2,
-  Upload,
 } from 'lucide-react'
 import { buildDiagnosis, calculateIndicators, runCrossChecks } from './domain/analysis'
 import { METRICS_BY_DOCUMENT } from './domain/catalog'
 import { DEMO_DOCUMENTS } from './domain/demo'
 import { parseBrazilianNumber } from './domain/numbers'
-import { hasUsefulExtraction } from './domain/pdf'
 import { formatCurrency, formatPercent } from './utils/format'
 import { DOCUMENT_TYPES } from './types'
 import type { DocumentRecord, DocumentType, GovernmentUnit, MetricKey } from './types'
@@ -29,133 +26,60 @@ import './App.css'
 
 type Page = 'overview' | 'documents' | 'diagnosis'
 
-const documentTypeOptions = Object.entries(DOCUMENT_TYPES) as Array<[DocumentType, string]>
 const reportTypes = Object.keys(DOCUMENT_TYPES) as DocumentType[]
 const FinancialChart = lazy(() => import('./components/FinancialChart'))
 
 function App() {
   const [page, setPage] = useState<Page>('overview')
   const [documents, setDocuments] = useState<DocumentRecord[]>([])
+  const [manualInputValues, setManualInputValues] = useState<Record<string, Partial<Record<MetricKey, string>>>>({})
   const [municipality, setMunicipality] = useState('')
   const [state, setState] = useState('')
   const [exercise, setExercise] = useState('')
   const [period, setPeriod] = useState('')
   const [unit, setUnit] = useState<GovernmentUnit>('unknown')
   const [message, setMessage] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [processingReports, setProcessingReports] = useState<DocumentType[]>([])
-  const [ocrProgress, setOcrProgress] = useState<{ fileName: string; page: number; progress: number } | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
-  const reportInputs = useRef<Partial<Record<DocumentType, HTMLInputElement | null>>>({})
-  const previewUrls = useRef(new Set<string>())
-
-  useEffect(() => () => {
-    previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
-    previewUrls.current.clear()
-  }, [])
 
   const indicators = useMemo(() => calculateIndicators(documents, unit), [documents, unit])
   const checks = useMemo(() => runCrossChecks(documents), [documents])
   const diagnosis = useMemo(() => buildDiagnosis(documents, unit), [documents, unit])
   const demoMode = documents.length > 0 && documents.every((document) => document.isDemo)
-  const duplicateTypes = useMemo(() => {
-    const types = documents.flatMap((document) => document.type ? [document.type] : [])
-    return new Set(types.filter((type, index) => types.indexOf(type) !== index))
-  }, [documents])
 
-  async function handleFiles(files: FileList | null, reportType?: DocumentType) {
-    if (!files?.length) return
-    if (demoMode && !window.confirm('Carregar PDFs vai substituir o conjunto fictício. Deseja continuar?')) return
-
-    const selected = Array.from(files)
-    const pdfFiles = selected.filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))
-    const rejected = selected.length - pdfFiles.length + (reportType ? Math.max(0, pdfFiles.length - 1) : 0)
-    const selectedPdfs = reportType ? pdfFiles.slice(0, 1) : pdfFiles
-    if (selectedPdfs.length === 0) {
-      setMessage('Selecione arquivos PDF para iniciar a análise.')
+  function addManualDocument(type: DocumentType) {
+    if (demoMode) {
+      if (!window.confirm('Adicionar dados manuais vai substituir o conjunto fictício. Deseja continuar?')) return
+      setDocuments([{
+        id: crypto.randomUUID(),
+        name: `Entrada manual — ${DOCUMENT_TYPES[type]}`,
+        type,
+        status: 'review',
+        isManual: true,
+        fields: {},
+      }])
+      setManualInputValues({})
+      setMessage('A demonstração fictícia foi substituída. Informe manualmente os valores consultados no demonstrativo oficial.')
       return
     }
-
-    setMessage(rejected > 0 ? `${rejected} arquivo(s) ignorado(s): somente PDFs são aceitos.` : '')
-    setIsProcessing(true)
-    if (reportType) setProcessingReports((current) => [...new Set([...current, reportType])])
-    try {
-      const { extractPdf } = await import('./domain/pdf')
-      const results: DocumentRecord[] = []
-      for (const file of selectedPdfs) {
-        const previewUrl = URL.createObjectURL(file)
-        previewUrls.current.add(previewUrl)
-        try {
-          if (file.size > 30 * 1024 * 1024) {
-            throw new Error('O arquivo excede o limite de 30 MB.')
-          }
-          const extracted = await extractPdf(file, (page, progress) => {
-            setOcrProgress({ fileName: file.name, page, progress })
-          })
-          const usefulExtraction = hasUsefulExtraction(extracted)
-          const noText = !usefulExtraction
-          results.push({
-            id: crypto.randomUUID(),
-            name: file.name,
-            fileSize: file.size,
-            previewUrl,
-            type: reportType ?? extracted.type,
-            status: noText ? 'no-text' : 'review',
-            fields: extracted.fields,
-            pageCount: extracted.pageCount,
-            pageReadings: extracted.pages.map(({ pageNumber, method, confidence, rotation }) => ({ pageNumber, method, confidence, rotation })),
-            fieldSources: extracted.fieldSources,
-            error: [
-              noText ? 'Não foi possível extrair dados úteis do documento. Abra o arquivo na conferência e confirme se ele é legível ou se há necessidade de OCR adicional.' : '',
-              ...extracted.warnings,
-            ].filter(Boolean).join(' ') || undefined,
-          })
-        } catch (error) {
-          results.push({
-            id: crypto.randomUUID(),
-            name: file.name,
-            fileSize: file.size,
-            previewUrl,
-            type: reportType ?? null,
-            status: 'error',
-            fields: {},
-            error: error instanceof Error ? error.message : 'Falha desconhecida durante a leitura do PDF.',
-          })
-        }
-      }
-
-      setDocuments((current) => {
-        const retained = current.filter((document) => !document.isDemo && (!reportType || document.type !== reportType))
-        current
-          .filter((document) => reportType && document.type === reportType)
-          .forEach((document) => {
-            if (document.previewUrl) {
-              URL.revokeObjectURL(document.previewUrl)
-              previewUrls.current.delete(document.previewUrl)
-            }
-          })
-        return [...retained, ...results]
-      })
-      if (results.some((document) => document.status === 'error' || document.status === 'no-text')) {
-        setMessage('A leitura não conseguiu extrair dados úteis de um ou mais arquivos. Revise a conferência e preencha manualmente os campos necessários.')
-      } else if (rejected === 0) {
-        setMessage('Leitura concluída. Revise os valores extraídos antes de gerar o diagnóstico.')
-      }
-      setPage('documents')
-    } catch (error) {
-      setMessage(`Não foi possível iniciar a leitura dos PDFs: ${error instanceof Error ? error.message : 'erro desconhecido.'}`)
-    } finally {
-      setIsProcessing(false)
-      setOcrProgress(null)
-      if (reportType) setProcessingReports((current) => current.filter((type) => type !== reportType))
+    if (documents.some((document) => document.type === type)) {
+      setMessage(`${DOCUMENT_TYPES[type]} já foi incluído nesta análise. Edite os campos existentes.`)
+      return
     }
-  }
-
-  function updateDocument(id: string, update: Partial<DocumentRecord>) {
-    setDocuments((current) => current.map((document) => document.id === id ? { ...document, ...update } : document))
+    setDocuments((current) => [...current, {
+      id: crypto.randomUUID(),
+      name: `Entrada manual — ${DOCUMENT_TYPES[type]}`,
+      type,
+      status: 'review',
+      isManual: true,
+      fields: {},
+    }])
+    setMessage(`${DOCUMENT_TYPES[type]} adicionado. Informe manualmente os valores consultados no demonstrativo oficial.`)
   }
 
   function updateField(id: string, key: MetricKey, value: string) {
+    setManualInputValues((current) => ({
+      ...current,
+      [id]: { ...current[id], [key]: value },
+    }))
     const parsed = value.trim() ? parseBrazilianNumber(value) : undefined
     setDocuments((current) => current.map((document) => {
       if (document.id !== id) return document
@@ -163,34 +87,25 @@ function App() {
     }))
   }
 
-  function uploadReport(type: DocumentType) {
-    reportInputs.current[type]?.click()
-  }
-
   function removeDocument(id: string) {
-    const document = documents.find((item) => item.id === id)
-    if (document?.previewUrl) {
-      URL.revokeObjectURL(document.previewUrl)
-      previewUrls.current.delete(document.previewUrl)
-    }
     setDocuments((current) => current.filter((item) => item.id !== id))
+    setManualInputValues((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
   }
 
   function startNewAnalysis() {
-    if (documents.length > 0 && !window.confirm('Iniciar uma nova análise e remover os documentos atuais desta sessão?')) return
-    documents.forEach((document) => {
-      if (document.previewUrl) {
-        URL.revokeObjectURL(document.previewUrl)
-        previewUrls.current.delete(document.previewUrl)
-      }
-    })
+    if (documents.length > 0 && !window.confirm('Iniciar uma nova análise e remover os demonstrativos e valores atuais desta sessão?')) return
     setDocuments([])
+    setManualInputValues({})
     setMunicipality('')
     setState('')
     setExercise('')
     setPeriod('')
     setUnit('unknown')
-    setMessage('Nova análise iniciada. Os documentos não são enviados nem salvos em servidor.')
+    setMessage('Nova análise iniciada. Informe manualmente os valores dos demonstrativos; nenhum arquivo PDF é enviado ou processado.')
     setPage('overview')
   }
 
@@ -200,6 +115,7 @@ function App() {
       return
     }
     setDocuments(DEMO_DOCUMENTS.map((document) => ({ ...document, fields: { ...document.fields } })))
+    setManualInputValues({})
     setMunicipality('Município Exemplo (fictício)')
     setState('MG')
     setExercise('2025')
@@ -260,7 +176,7 @@ function App() {
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="privacy-note"><ShieldCheck size={17} aria-hidden="true" /><span>Processamento local<br />sem envio de documentos</span></div>
+          <div className="privacy-note"><ShieldCheck size={17} aria-hidden="true" /><span>Preenchimento manual<br />sem upload de PDFs</span></div>
           <span className="version-label">Análise preliminar • v0.1</span>
         </div>
       </aside>
@@ -295,9 +211,6 @@ function App() {
 
         {message && <div className="notice" role="status"><CircleHelp size={17} aria-hidden="true" /><span>{message}</span><button aria-label="Fechar aviso" onClick={() => setMessage('')}>×</button></div>}
         {demoMode && <div className="demo-banner"><AlertCircle size={17} aria-hidden="true" /><span>Modo demonstração — todos os valores exibidos são fictícios.</span></div>}
-        {duplicateTypes.size > 0 && <div className="notice notice-warning"><AlertCircle size={17} aria-hidden="true" /><span>Há categorias com mais de um arquivo. Os cálculos utilizam o primeiro documento de cada categoria; não misture períodos.</span></div>}
-        {isProcessing && <div className="processing-banner"><span className="spinner" /> {ocrProgress ? `OCR local: ${ocrProgress.fileName} · página ${ocrProgress.page} · ${Math.round(ocrProgress.progress * 100)}%` : 'Extraindo texto dos PDFs no navegador…'}</div>}
-
         {page === 'overview' && (
           <Overview
             documents={documents}
@@ -306,7 +219,6 @@ function App() {
             expenseChartData={expenseChartData}
             personnelChart={personnelChart}
             openDocuments={() => setPage('documents')}
-            upload={() => setPage('documents')}
             loadDemo={loadDemo}
           />
         )}
@@ -314,16 +226,11 @@ function App() {
         {page === 'documents' && (
           <DocumentsPage
             documents={documents}
-            onUpload={() => fileInput.current?.click()}
-            onUploadReport={uploadReport}
-            onDropReport={(type, files) => void handleFiles(files, type)}
-            onOpenPreview={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+            manualInputValues={manualInputValues}
+            onAddReport={addManualDocument}
             onRemove={removeDocument}
-            onTypeChange={(id, type) => updateDocument(id, { type })}
             onFieldChange={updateField}
             loadDemo={loadDemo}
-            isProcessing={isProcessing}
-            processingReports={processingReports}
           />
         )}
 
@@ -337,30 +244,6 @@ function App() {
           />
         )}
 
-        <input
-          ref={fileInput}
-          className="visually-hidden"
-          type="file"
-          accept="application/pdf,.pdf"
-          multiple
-          onChange={(event) => {
-            void handleFiles(event.currentTarget.files)
-            event.currentTarget.value = ''
-          }}
-        />
-        {reportTypes.map((type) => (
-          <input
-            key={type}
-            ref={(element) => { reportInputs.current[type] = element }}
-            className="visually-hidden"
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(event) => {
-              void handleFiles(event.currentTarget.files, type)
-              event.currentTarget.value = ''
-            }}
-          />
-        ))}
         <footer className="page-footer">
           <span>Município Inteligente · Ferramenta de apoio gerencial</span>
           <span>Resultados sujeitos à conferência profissional</span>
@@ -377,7 +260,6 @@ interface OverviewProps {
   expenseChartData: Array<{ name: string; value: number }>
   personnelChart: Array<{ name: string; value: number }>
   openDocuments: () => void
-  upload: () => void
   loadDemo: () => void
 }
 
@@ -388,7 +270,6 @@ function Overview({
   expenseChartData,
   personnelChart,
   openDocuments,
-  upload,
   loadDemo,
 }: OverviewProps) {
   if (documents.length === 0) {
@@ -398,7 +279,7 @@ function Overview({
         <p className="eyebrow">ANÁLISE CONTÁBIL E FINANCEIRA MUNICIPAL</p>
         <h2>Município Inteligente</h2>
         <p className="welcome-subtitle">Informação clara para apoiar a gestão pública municipal.</p>
-        <p className="welcome-copy">Transforme demonstrativos contábeis e fiscais em informações claras para apoiar a análise das contas públicas e a tomada de decisões. Envie seus arquivos PDF, confira os dados extraídos, analise indicadores e identifique possíveis inconsistências em um único ambiente.</p>
+        <p className="welcome-copy">Informe manualmente os valores consultados nos demonstrativos contábeis e fiscais oficiais. O sistema calcula indicadores, aponta possíveis inconsistências e organiza as informações para apoiar a gestão municipal.</p>
         <div className="welcome-features">
           <h3>O que você pode fazer?</h3>
           <ul>
@@ -408,13 +289,13 @@ function Overview({
             <li>Gerar diagnósticos e relatórios com base nos dados conferidos.</li>
           </ul>
         </div>
-        <p className="welcome-start">Comece agora: importe os demonstrativos do município e inicie sua análise.</p>
+        <p className="welcome-start">Comece agora: escolha os demonstrativos e digite os valores diretamente no sistema.</p>
         <div className="welcome-actions">
-          <button className="button button-primary" onClick={upload}><Upload size={17} aria-hidden="true" /> Importar demonstrativos</button>
+          <button className="button button-primary" onClick={openDocuments}><FileText size={17} aria-hidden="true" /> Inserir dados manualmente</button>
           <button className="button button-secondary" onClick={loadDemo}>Testar com dados fictícios</button>
         </div>
         <p className="welcome-tagline">Município Inteligente — mais clareza, controle e eficiência na análise das contas públicas.</p>
-        <div className="welcome-tip"><CircleHelp size={16} aria-hidden="true" /><span>Os documentos são processados no navegador; confira os dados extraídos antes de gerar o diagnóstico.</span></div>
+        <div className="welcome-tip"><CircleHelp size={16} aria-hidden="true" /><span>Importante: este sistema não recebe nem lê PDFs. Consulte os demonstrativos oficiais e transcreva os valores nos campos. Confira cada valor antes de gerar o diagnóstico.</span></div>
       </section>
     )
   }
@@ -422,7 +303,7 @@ function Overview({
   return (
     <div className="page-content">
       <div className="section-heading">
-        <div><h2>Resumo da análise</h2><p>Indicadores calculados a partir dos documentos carregados.</p></div>
+        <div><h2>Resumo da análise</h2><p>Indicadores calculados com base nos valores informados manualmente.</p></div>
         <button className="button button-secondary" onClick={openDocuments}>Ver demonstrativos <ChevronRight size={16} aria-hidden="true" /></button>
       </div>
       <div className="metric-grid">
@@ -432,10 +313,10 @@ function Overview({
         <MetricCard label="Restos a pagar" value={formatCurrency(indicators.rpTotal)} icon={<FileText size={18} />} helper="Saldo final processado e não processado" />
       </div>
       <section className="panel document-summary">
-        <div className="panel-heading"><div><h3>Documentos desta análise</h3><p>{documents.length} arquivo(s) carregado(s)</p></div><button className="text-button" onClick={openDocuments}>Conferir lista <ChevronRight size={15} /></button></div>
+        <div className="panel-heading"><div><h3>Demonstrativos desta análise</h3><p>{documents.length} demonstrativo(s) informado(s)</p></div><button className="text-button" onClick={openDocuments}>Conferir valores <ChevronRight size={15} /></button></div>
         <div className="document-chips">
-          {documents.map((document) => <span className={`document-chip ${document.status === 'error' || document.status === 'no-text' ? 'chip-attention' : ''}`} key={document.id}>
-            {document.status === 'error' || document.status === 'no-text' ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
+          {documents.map((document) => <span className="document-chip" key={document.id}>
+            <CheckCircle2 size={14} />
             {document.type ? DOCUMENT_TYPES[document.type] : 'Categoria pendente'}
           </span>)}
         </div>
@@ -455,7 +336,7 @@ function Overview({
           {indicators.fiscalLimits.status === 'pending'
             ? <p>Informe o poder analisado (Executivo ou Legislativo) e confira os dados da RCL para avaliar os parâmetros fiscais.</p>
             : <p>Despesa com pessoal: <strong>{formatPercent(indicators.personnelRatio)}</strong>. Os limites e a interpretação devem ser validados conforme o período e o órgão analisado.</p>}
-          <button className="text-button" onClick={openDocuments}>Revisar dados extraídos <ChevronRight size={15} /></button>
+          <button className="text-button" onClick={openDocuments}>Revisar valores informados <ChevronRight size={15} /></button>
         </section>
       </div>
     </div>
@@ -468,147 +349,72 @@ function MetricCard({ label, value, icon, helper }: { label: string; value: stri
 
 interface DocumentsPageProps {
   documents: DocumentRecord[]
-  onUpload: () => void
-  onUploadReport: (type: DocumentType) => void
-  onDropReport: (type: DocumentType, files: FileList) => void
-  onOpenPreview: (url: string) => void
+  manualInputValues: Record<string, Partial<Record<MetricKey, string>>>
+  onAddReport: (type: DocumentType) => void
   onRemove: (id: string) => void
-  onTypeChange: (id: string, type: DocumentType | null) => void
   onFieldChange: (id: string, key: MetricKey, value: string) => void
   loadDemo: () => void
-  isProcessing: boolean
-  processingReports: DocumentType[]
 }
 
-function DocumentsPage({ documents, onUpload, onUploadReport, onDropReport, onOpenPreview, onRemove, onTypeChange, onFieldChange, loadDemo, isProcessing, processingReports }: DocumentsPageProps) {
+function DocumentsPage({ documents, manualInputValues, onAddReport, onRemove, onFieldChange, loadDemo }: DocumentsPageProps) {
   return (
     <div className="page-content">
       <div className="section-heading">
-        <div><h2>Demonstrativos por relatório</h2><p>Escolha um PDF para cada tipo de relatório. Você também pode arrastar e soltar o arquivo na respectiva área.</p></div>
-        <button className="button button-secondary" onClick={onUpload} disabled={isProcessing}><Plus size={17} aria-hidden="true" /> Importar vários PDFs</button>
+        <div><h2>Inserção manual dos demonstrativos</h2><p>Selecione os tipos de demonstrativo e informe os valores consultando os documentos oficiais. O sistema não permite upload nem leitura de PDFs.</p></div>
       </div>
-      <div className="report-upload-grid">
+      <div className="manual-entry-grid">
         {reportTypes.map((type) => {
           const document = documents.find((item) => item.type === type)
           return (
-            <article
-              key={type}
-              className={`report-upload-card${document ? ' report-upload-card-filled' : ''}`}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event: DragEvent<HTMLElement>) => {
-                event.preventDefault()
-                if (isProcessing) return
-                onDropReport(type, event.dataTransfer.files)
-              }}
-            >
-              <div className="report-upload-heading">
-                <span className="report-upload-icon"><FileText size={17} aria-hidden="true" /></span>
-                <div>
-                  <strong>{DOCUMENT_TYPES[type]}</strong>
-                  <span>{processingReports.includes(type) ? 'Processando PDF…' : document ? statusLabel(document.status) : 'Nenhum arquivo anexado'}</span>
-                </div>
+            <article key={type} className={`manual-entry-card${document ? ' manual-entry-card-filled' : ''}`}>
+              <span className="manual-entry-icon"><FileText size={17} aria-hidden="true" /></span>
+              <div className="manual-entry-copy">
+                <strong>{DOCUMENT_TYPES[type]}</strong>
+                <span>{document ? 'Adicionado para preenchimento' : 'Ainda não informado'}</span>
               </div>
-              <div className="report-drop-area">
-                <span className="report-file-name" title={document?.name}>{document?.name ?? 'Arraste o PDF para esta área'}</span>
-                {document?.fileSize !== undefined && <small>{formatFileSize(document.fileSize)}</small>}
-                <div className="report-upload-actions">
-                  <button className="button button-secondary" onClick={() => onUploadReport(type)} disabled={isProcessing}>
-                    <Upload size={14} aria-hidden="true" /> {document ? 'Substituir' : 'Selecionar PDF'}
-                  </button>
-                  {document && !document.isDemo && (
-                    <button className="icon-button danger-icon" title="Remover arquivo" aria-label={`Remover ${document.name}`} onClick={() => onRemove(document.id)}>
-                      <Trash2 size={16} aria-hidden="true" />
-                    </button>
-                  )}
-                  {document?.previewUrl && <button className="button button-secondary" onClick={() => onOpenPreview(document.previewUrl!)}>Prévia</button>}
-                </div>
-              </div>
-              {document?.error && <p className="report-upload-error">{document.error}</p>}
+              <button className="button button-secondary" onClick={() => onAddReport(type)} disabled={Boolean(document)}>
+                {document ? 'Adicionado' : 'Adicionar campos'}
+              </button>
             </article>
           )
         })}
       </div>
-      <div className="section-heading report-extra-heading">
-        <div><h2>Documentos extras</h2><p>Para arquivos complementares ou relatórios não listados acima.</p></div>
-        <button className="button button-primary" onClick={onUpload} disabled={isProcessing}><Plus size={17} aria-hidden="true" /> Selecionar PDFs</button>
-      </div>
+      <section className="note-panel manual-entry-notice"><CircleHelp size={18} aria-hidden="true" /><p><strong>Preenchimento manual:</strong> nenhum PDF é enviado, anexado ou lido pelo sistema. Consulte o documento oficial por fora do aplicativo e digite os valores correspondentes. Use vírgula ou ponto como separador decimal; campos vazios ficam fora dos cálculos.</p></section>
       {documents.length > 0 ? (
         <div className="document-list">
           {documents.map((document) => {
             const fields = document.type ? METRICS_BY_DOCUMENT[document.type] : []
             return <article className="document-card" key={document.id}>
               <div className="document-card-header">
-                <span className={`file-icon ${document.status === 'error' || document.status === 'no-text' ? 'file-icon-warning' : ''}`}><FileText size={20} aria-hidden="true" /></span>
+                <span className="file-icon"><FileText size={20} aria-hidden="true" /></span>
                 <div className="document-file-info">
                   <strong title={document.name}>{document.name}</strong>
-                  <span>{document.pageCount !== undefined ? `${document.pageCount} página(s) · ` : ''}{document.fileSize !== undefined ? `${formatFileSize(document.fileSize)} · ` : ''}{document.isDemo ? 'Dado fictício' : statusLabel(document.status)}</span>
-                  {document.pageReadings && (
-                    <small className="page-reading-summary">{pageReadingSummary(document.pageReadings)}</small>
-                  )}
-                  {document.previewUrl && <button className="text-button" onClick={() => onOpenPreview(document.previewUrl!)}>Abrir prévia</button>}
+                  <span>{document.isDemo ? 'Dados fictícios' : document.isManual ? 'Preenchimento manual' : 'Dados informados'}</span>
                 </div>
-                <label className="category-select">Categoria
-                  <select value={document.type ?? ''} onChange={(event) => onTypeChange(document.id, (event.target.value || null) as DocumentType | null)}>
-                    <option value="">Selecionar categoria</option>
-                    {documentTypeOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-                  </select>
-                </label>
                 {!document.isDemo && <button className="icon-button danger-icon" title="Remover arquivo" aria-label={`Remover ${document.name}`} onClick={() => onRemove(document.id)}><Trash2 size={17} /></button>}
               </div>
-              {document.error && <p className="document-error"><AlertCircle size={15} aria-hidden="true" />{document.error}</p>}
-              {document.type && <details className="field-editor" open={document.status === 'no-text' || document.status === 'error'}>
-                <summary>Revisar e editar valores extraídos <span>{Object.keys(document.fields).length} campo(s)</span></summary>
+              {document.type && <details className="field-editor" open>
+                <summary>Informe os valores do demonstrativo <span>{Object.values(document.fields).filter((value) => value !== undefined).length} campo(s) preenchido(s)</span></summary>
                 <div className="field-grid">
                   {fields.map((field) => {
-                    const source = document.fieldSources?.[field.key]
                     return <label key={field.key}>{field.label}
                       <input
                         type="text"
                         inputMode="decimal"
-                        placeholder="Não identificado"
-                        value={document.fields[field.key] ?? ''}
+                        placeholder="Digite o valor"
+                        value={manualInputValues[document.id]?.[field.key] ?? document.fields[field.key] ?? ''}
                         onChange={(event) => onFieldChange(document.id, field.key, event.target.value)}
                       />
-                      {source && <small className="field-source">Página {source.pageNumber}: “{source.originalDescription}” · lido: {source.originalValue}{source.confidence !== null ? ` · confiança OCR ${Math.round(source.confidence * 100)}%` : ''}</small>}
                     </label>
                   })}
                 </div>
-                <p className="field-help">Revise os valores com o documento original. Use vírgula ou ponto como separador decimal; campos vazios não entram nos cálculos.</p>
+                <p className="field-help">Transcreva os valores do documento oficial. Confira os números e o período; campos vazios não entram nos cálculos.</p>
               </details>}
             </article>
           })}
-        </div>
-      ) : <section className="empty-document-panel compact-empty-document"><p>Os dados extraídos e os campos para conferência aparecerão aqui depois que você carregar um PDF.</p><button className="button button-secondary" onClick={loadDemo}>Usar demonstração fictícia</button></section>}
-      <section className="note-panel"><ShieldCheck size={18} aria-hidden="true" /><p>Os PDFs são processados no navegador e não são enviados a uma API. Páginas sem texto selecionável usam OCR local em português; na primeira utilização, o navegador baixa o modelo do Tesseract. A extração é preliminar: confira os valores com o original, inclusive quando a confiança do OCR for exibida.</p></section>
+        </div>) : <section className="empty-document-panel compact-empty-document"><p>Escolha um ou mais tipos acima para abrir os campos de entrada manual. Os cálculos serão feitos somente com os valores digitados.</p><button className="button button-secondary" onClick={loadDemo}>Usar demonstração fictícia</button></section>}
     </div>
   )
-}
-
-function statusLabel(status: DocumentRecord['status']): string {
-  if (status === 'processing') return 'Lendo documento'
-  if (status === 'review') return 'Leitura concluída · requer conferência'
-  if (status === 'no-text') return 'Sem texto selecionável'
-  if (status === 'error') return 'Falha na leitura'
-  return 'Dado fictício'
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function pageReadingSummary(readings: NonNullable<DocumentRecord['pageReadings']>): string {
-  const ocrPages = readings.filter((page) => page.method === 'ocr')
-  const emptyPages = readings.filter((page) => page.method === 'empty').length
-  const parts = [`${readings.length - ocrPages.length - emptyPages} página(s) com texto`]
-  if (ocrPages.length) {
-    const confidence = ocrPages.flatMap((page) => page.confidence === null ? [] : [page.confidence])
-    const average = confidence.length ? ` · confiança média ${Math.round(confidence.reduce((sum, value) => sum + value, 0) / confidence.length * 100)}%` : ''
-    parts.push(`${ocrPages.length} por OCR${average}`)
-  }
-  if (emptyPages) parts.push(`${emptyPages} sem texto reconhecido`)
-  return parts.join(' · ')
 }
 
 interface DiagnosisPageProps {
@@ -621,11 +427,11 @@ interface DiagnosisPageProps {
 
 function DiagnosisPage({ diagnosis, checks, indicators, hasDocuments, onAddDocuments }: DiagnosisPageProps) {
   if (!hasDocuments) {
-    return <section className="welcome-panel compact-empty"><div className="welcome-icon"><FileChartColumnIncreasing size={22} /></div><h2>O diagnóstico será exibido aqui</h2><p>Adicione demonstrativos e confira os valores extraídos para gerar uma análise baseada somente nos dados disponíveis.</p><button className="button button-primary" onClick={onAddDocuments}><Upload size={16} /> Adicionar demonstrativos</button></section>
+    return <section className="welcome-panel compact-empty"><div className="welcome-icon"><FileChartColumnIncreasing size={22} /></div><h2>O diagnóstico será exibido aqui</h2><p>Adicione os demonstrativos e informe manualmente os valores para gerar uma análise baseada somente nos dados digitados.</p><button className="button button-primary" onClick={onAddDocuments}><FileText size={16} /> Inserir dados manualmente</button></section>
   }
   return (
     <div className="page-content">
-      <div className="diagnosis-intro"><div><p className="eyebrow">ANÁLISE AUTOMÁTICA BASEADA EM REGRAS</p><h2>Diagnóstico financeiro</h2><p>Não foi utilizada IA generativa. As conclusões abaixo dependem da qualidade e da revisão dos dados extraídos.</p></div><span className="rule-badge"><ShieldCheck size={15} /> Regras determinísticas</span></div>
+      <div className="diagnosis-intro"><div><p className="eyebrow">ANÁLISE AUTOMÁTICA BASEADA EM REGRAS</p><h2>Diagnóstico financeiro</h2><p>Não foi utilizada IA generativa. As conclusões dependem da precisão dos valores informados manualmente.</p></div><span className="rule-badge"><ShieldCheck size={15} /> Regras determinísticas</span></div>
       <div className="diagnosis-grid">
         <DiagnosisSection title="Resumo geral" items={diagnosis.summary} icon={<BarChart3 size={18} />} />
         <DiagnosisSection title="Principais pontos de atenção" items={diagnosis.attention} icon={<AlertCircle size={18} />} variant="attention" />

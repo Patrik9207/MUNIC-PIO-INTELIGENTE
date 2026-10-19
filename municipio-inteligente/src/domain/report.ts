@@ -55,11 +55,12 @@ export function exportReportPdf(documents: DocumentRecord[], details: ReportDeta
   y = 47
   write(`Município: ${details.municipality || 'Não informado'} / ${details.state || 'UF não informada'}    Exercício: ${details.exercise || 'Não informado'}    Período: ${details.period || 'Não informado'}`)
 
-  heading('1. Documentos analisados')
-  if (documents.length === 0) write('Nenhum demonstrativo foi carregado.')
+  heading('1. Demonstrativos informados')
+  if (documents.length === 0) write('Nenhum demonstrativo foi informado.')
   for (const document of documents) {
     const kind = document.type ? DOCUMENT_TYPES[document.type] : 'Categoria não identificada'
-    write(`• ${document.name} — ${kind}${document.isDemo ? ' [DADO FICTÍCIO]' : ''}; status: ${document.status}; páginas: ${document.pageCount ?? '—'}.`)
+    const sourceLabel = document.isDemo ? ' [DADO FICTÍCIO]' : document.isManual ? ' [PREENCHIMENTO MANUAL]' : ''
+    write(`• ${document.name} — ${kind}${sourceLabel}.`)
     if (document.type) {
       for (const field of METRICS_BY_DOCUMENT[document.type]) {
         const value = document.fields[field.key]

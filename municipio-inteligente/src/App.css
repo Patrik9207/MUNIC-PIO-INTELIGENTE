@@ -225,7 +225,6 @@
 }
 
 .context-panel label,
-.category-select,
 .field-grid label {
   display: grid;
   gap: 5px;
@@ -236,7 +235,6 @@
 
 .context-panel input,
 .context-panel select,
-.category-select select,
 .field-grid input {
   width: 100%;
   min-width: 0;
@@ -257,7 +255,6 @@
 
 .context-panel input:focus,
 .context-panel select:focus,
-.category-select select:focus,
 .field-grid input:focus {
   border-color: #3788c2;
   outline: 2px solid #3788c222;
@@ -694,39 +691,35 @@
   gap: 10px;
 }
 
-.report-upload-grid {
+.manual-entry-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 11px;
 }
 
-.report-upload-card {
+.manual-entry-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
   padding: 13px;
   border: 1px solid #dce5ec;
   border-radius: 7px;
   background: #fff;
-  transition: border-color .15s ease, background-color .15s ease;
+  transition: border-color .15s ease;
 }
 
-.report-upload-card:hover,
-.report-upload-card:focus-within {
+.manual-entry-card:hover,
+.manual-entry-card:focus-within {
   border-color: #80afd0;
 }
 
-.report-upload-card-filled {
+.manual-entry-card-filled {
   border-color: #c9dfd0;
   background: #fcfefd;
 }
 
-.report-upload-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 36px;
-}
-
-.report-upload-icon {
+.manual-entry-icon {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
@@ -737,74 +730,26 @@
   color: #2875aa;
 }
 
-.report-upload-heading > div {
+.manual-entry-copy {
   min-width: 0;
   display: grid;
   gap: 4px;
+  flex: 1;
 }
 
-.report-upload-heading strong {
+.manual-entry-copy strong {
   color: #29445e;
   font-size: 11px;
   line-height: 1.35;
 }
 
-.report-upload-heading span:not(.report-upload-icon) {
+.manual-entry-copy span {
   color: #798795;
   font-size: 10px;
 }
 
-.report-drop-area {
-  min-height: 59px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 11px;
-  padding: 9px 10px;
-  border: 1px dashed #cbd9e4;
-  border-radius: 5px;
-  background: #f9fbfd;
-}
-
-.report-file-name {
-  overflow: hidden;
-  min-width: 0;
-  color: #627487;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.report-drop-area small {
-  flex: 0 0 auto;
-  color: #81909e;
-  font-size: 9px;
-}
-
-.report-upload-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 5px;
-}
-
-.report-upload-actions .button {
-  min-height: 31px;
-  gap: 5px;
-  padding-inline: 8px;
-  font-size: 10px;
-}
-
-.report-upload-error {
-  margin: 8px 0 0;
-  color: #806329;
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.report-extra-heading {
-  margin-top: 9px;
+.manual-entry-notice {
+  margin-top: 12px;
 }
 
 .compact-empty-document {
@@ -863,16 +808,6 @@
 .document-file-info span {
   color: #798795;
   font-size: 10px;
-}
-
-.page-reading-summary {
-  color: #5f7890;
-  font-size: 9px;
-  line-height: 1.4;
-}
-
-.category-select {
-  width: min(260px, 27%);
 }
 
 .icon-button {
@@ -939,15 +874,6 @@
 .field-grid label {
   font-size: 9px;
   line-height: 1.4;
-}
-
-.field-source {
-  display: block;
-  color: #798795;
-  font-size: 9px;
-  font-weight: 400;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .field-grid input {
@@ -1245,16 +1171,6 @@
   font-size: 9px;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  clip-path: inset(50%);
-}
-
 @media (max-width: 1100px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1266,7 +1182,7 @@
 }
 
 @media (max-width: 760px) {
-  .report-upload-grid {
+  .manual-entry-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1368,22 +1284,8 @@
     flex-wrap: wrap;
   }
 
-  .report-drop-area {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .report-file-name {
-    flex-basis: 100%;
-  }
-
   .document-file-info {
     max-width: calc(100% - 100px);
-  }
-
-  .category-select {
-    width: calc(100% - 46px);
-    margin-left: 47px;
   }
 
   .icon-button {

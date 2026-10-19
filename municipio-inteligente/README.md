@@ -1,6 +1,6 @@
 # Município Inteligente — aplicação
 
-Aplicação acadêmica para análise preliminar de demonstrativos contábeis e fiscais municipais. Os PDFs são processados localmente no navegador; os valores extraídos podem ser conferidos e corrigidos antes dos cálculos.
+Aplicação acadêmica para análise preliminar de demonstrativos contábeis e fiscais municipais. Os valores são informados manualmente pelo usuário; o sistema não recebe, anexa nem lê PDFs.
 
 ## Requisitos
 
@@ -29,20 +29,17 @@ Os testes automatizados cobrem interpretação de números brasileiros, divisõe
 
 ## Funcionalidades
 
-- Campo de upload independente para cada um dos oito demonstrativos, com seleção, arrastar e soltar, substituição, remoção e prévia do PDF.
-- Importação em lote de PDFs complementares e categorização manual ou automática conservadora.
-- Extração local de texto selecionável com PDF.js e OCR em português por página com Tesseract.js para PDFs digitalizados ou mistos.
-- Revisão manual dos valores com indicação do documento, página, descrição original e confiança do OCR, quando disponível.
-- Indicadores patrimoniais, orçamentários, fiscais e de restos a pagar.
-- Gráficos simples, verificações entre demonstrativos e diagnóstico por regras.
+- Entrada manual dos valores para cada um dos oito tipos de demonstrativo.
+- Cálculo de indicadores, gráficos, verificações entre demonstrativos e diagnóstico por regras com base nos valores informados.
+- Orientações na interface para consultar os demonstrativos oficiais e conferir os valores digitados.
 - Relatório PDF com dados, fórmulas, limitações e orientações.
 - Conjunto de demonstração dos oito documentos; todos os dados são fictícios.
 
 ## Limitações e segurança
 
-O diagnóstico atual usa regras determinísticas. Não há integração com IA generativa, autenticação ou banco de dados. Os PDFs são lidos no navegador e não são enviados a um serviço externo. Para OCR, o navegador baixa o worker e o modelo de idioma português do Tesseract na primeira utilização; o conteúdo do documento permanece local. OCR pode demorar, falhar ou reconhecer valores incorretamente, especialmente em páginas rotacionadas ou de baixa qualidade. A extração automática é heurística e deve ser conferida com os documentos originais; campos ausentes não são estimados. Não se declara conformidade legal sem contexto suficiente.
+O diagnóstico atual usa regras determinísticas. Não há integração com IA generativa, autenticação ou banco de dados. O sistema não permite upload, anexação ou leitura de PDFs. O usuário deve consultar os demonstrativos oficiais por conta própria e digitar os valores nos campos correspondentes. Campos ausentes não são estimados. Não se declara conformidade legal sem contexto suficiente.
 
-Os arquivos são processados no navegador e não são enviados a um servidor. O relatório é uma ferramenta de apoio gerencial e não substitui a análise do profissional responsável nem procedimentos formais de controle.
+Os dados são usados no navegador durante a sessão e não são enviados a um servidor. O relatório PDF exportado é uma ferramenta de apoio gerencial e não substitui a análise do profissional responsável nem procedimentos formais de controle.
 
 ## Publicação
 

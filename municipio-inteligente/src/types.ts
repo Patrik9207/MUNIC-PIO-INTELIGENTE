@@ -80,6 +80,7 @@ export interface DocumentRecord {
   pageCount?: number
   error?: string
   isDemo?: boolean
+  isManual?: boolean
 }
 
 export type GovernmentUnit = 'executive' | 'legislative' | 'unknown'
